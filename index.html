@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 기반 의료 서식지 요구사항 생성기</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+        }
+        /* 스크롤바 스타일링 */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 4px;
+        }
+        .dark ::-webkit-scrollbar-track {
+            background: #1e293b;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        .dark ::-webkit-scrollbar-thumb {
+            background: #475569;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+        .dark ::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
+        .fade-in {
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        /* 로딩 스피너 */
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #4f46e5;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200 min-h-screen flex items-center justify-center p-4">
+    <div class="w-full max-w-7xl mx-auto bg-white dark:bg-gray-800 rounded-2xl shadow-2xl p-6 md:p-10">
+        
+        <!-- 헤더 -->
+        <div class="text-center mb-8">
+            <h1 class="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white">AI 기반 의료 서식지 요구사항 생성기</h1>
+            <p class="mt-3 text-lg text-gray-600 dark:text-gray-400">의료 서식지를 입력하면 AI가 LLM 요약에 최적화된 작성 가이드를 생성합니다.</p>
+        </div>
+
+        <!-- API 키 입력 섹션 -->
+        <div class="mb-6 bg-yellow-100 dark:bg-yellow-900/30 border border-yellow-300 dark:border-yellow-700 rounded-lg p-4">
+            <label for="apiKeyInput" class="block text-sm font-medium text-yellow-800 dark:text-yellow-200">Gemini API 키 (필수)</label>
+            <input type="password" id="apiKeyInput" class="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="Notion 등 외부에서 사용하려면 API 키를 반드시 입력하세요">
+            <p class="mt-2 text-xs text-yellow-700 dark:text-yellow-300">
+                <strong>중요:</strong> 이 파일을 Notion, 웹사이트 등 외부 환경에 임베드하여 사용하려면 API 키가 반드시 필요합니다. 
+                <a href="https://aistudio.google.com/app/apikey" target="_blank" class="font-semibold underline hover:text-yellow-900 dark:hover:text-yellow-100">여기에서 Gemini API 키를 발급받으세요.</a>
+            </p>
+        </div>
+
+        <!-- 생성 버튼 -->
+        <div class="text-center mb-8">
+            <button id="generateBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 rounded-lg shadow-lg transform hover:scale-105 transition-all duration-300 ease-in-out">
+                AI로 작성 요구사항 생성하기
+            </button>
+        </div>
+
+        <!-- 메인 컨텐츠 영역 -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            
+            <!-- 서식지 입력 -->
+            <div>
+                <h2 class="text-2xl font-semibold text-gray-800 dark:text-white mb-3">1. 서식지 입력</h2>
+                <div class="bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-200 dark:border-gray-700">
+                    <textarea id="templateInput" class="w-full h-96 p-4 bg-transparent rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none resize-none text-sm leading-relaxed" placeholder="이곳에 분석할 서식지를 붙여넣으세요."></textarea>
+                </div>
+            </div>
+
+            <!-- 생성된 작성 요구사항 -->
+            <div>
+                <div class="flex justify-between items-center mb-3">
+                    <h2 class="text-2xl font-semibold text-gray-800 dark:text-white">2. 생성된 작성 요구사항</h2>
+                     <button id="copyBtn" class="bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-sm font-medium py-2 px-4 rounded-md transition-colors hidden">
+                        복사하기
+                    </button>
+                </div>
+                <div id="requirementsOutput" class="bg-gray-50 dark:bg-gray-900/50 p-4 rounded-lg h-96 overflow-auto border border-gray-200 dark:border-gray-700 flex items-center justify-center">
+                    <div id="initialMessage" class="text-center text-gray-500">
+                        <p>서식지를 입력하고 생성 버튼을 누르면</p>
+                        <p>이곳에 AI가 분석한 결과가 표시됩니다.</p>
+                    </div>
+                    <div id="loadingIndicator" class="hidden">
+                        <div class="loader"></div>
+                        <p class="mt-4 text-gray-500">AI가 요구사항을 생성 중입니다...</p>
+                    </div>
+                    <div id="requirementsContent" class="w-full h-full space-y-6"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- 초기 데이터 (예시용) ---
+        const exampleTemplate = `<<CC>>
+[부위명] : [위치] [양상] 통증 (NRS [방향]:[점수])
+([상세 증상, 악화요인 등 서술])
+
+[부위명] : [위치] [양상] 통증 (NRS [방향]:[점수])
+([상세 증상, 악화요인 등 서술])
+[확인항목]/[확인항목]/확인항목
+
+([부위명]) [이학적 검사항목] : +/-
+([부위명]) [이학적 검사항목] : +/-
+
+<<O/S>>
+-[부위], [부위]-
+최근악화시점 :
+원인 :
+진통제 복용횟수 :
+스테로이드 관련 주사 :
+수술 및 시술 :
+현재 episode 이외의 척추 수술여부 :
+
+Prog 검사(-) 치료(-)
+cf)두부 외상(-) 두통(-) 현훈(-) 오심(-)
+cf)현재 타병원 입원 유지(-)
+
+P/H
+F/H
+cf)결핵(-), 간염(-), 현재 독감(-)
+cf)체온(), 호흡기증상(-)
+
+<<공통정보>>
+직업분류 :
+흡연여부 :
+음주여부 :
+키 : cm / 체중 : kg / 내원유형 :
+Comorbidity :
+간질환여부 :
+신질환여부 :
+최근1년간 한약복용여부 :
+급여 및 비급여 항목 고지여부 :`;
+
+        // --- DOM 요소 참조 ---
+        const generateBtn = document.getElementById('generateBtn');
+        const templateInput = document.getElementById('templateInput');
+        const apiKeyInput = document.getElementById('apiKeyInput');
+        const requirementsContent = document.getElementById('requirementsContent');
+        const initialMessage = document.getElementById('initialMessage');
+        const loadingIndicator = document.getElementById('loadingIndicator');
+        const copyBtn = document.getElementById('copyBtn');
+        
+        let generatedRequirementsData = null;
+
+        // --- 초기화 ---
+        templateInput.value = exampleTemplate;
+
+        // --- 결과 패널 상태 관리 함수 ---
+        function setResultsPanelState(state, data = '') {
+            initialMessage.classList.add('hidden');
+            loadingIndicator.classList.add('hidden');
+            requirementsContent.innerHTML = '';
+            copyBtn.classList.add('hidden');
+
+            switch (state) {
+                case 'initial':
+                    initialMessage.classList.remove('hidden');
+                    break;
+                case 'loading':
+                    loadingIndicator.classList.remove('hidden');
+                    break;
+                case 'content':
+                    requirementsContent.innerHTML = data;
+                    copyBtn.classList.remove('hidden');
+                    break;
+                case 'error':
+                    requirementsContent.innerHTML = `<div class="w-full h-full flex items-center justify-center"><p class="text-center text-red-500 p-4">${data}</p></div>`;
+                    break;
+            }
+        }
+
+        // --- 이벤트 리스너 ---
+        generateBtn.addEventListener('click', async () => {
+            const apiKey = apiKeyInput.value.trim();
+            const userInput = templateInput.value.trim();
+            
+            if (!apiKey) {
+                setResultsPanelState('error', 'Gemini API 키를 입력해주세요. API 키는 외부 환경에서 앱을 실행하기 위해 필수입니다.');
+                apiKeyInput.focus();
+                return;
+            }
+
+            if (!userInput) {
+                setResultsPanelState('error', '분석할 서식지를 입력해주세요.');
+                templateInput.focus();
+                return;
+            }
+
+            setResultsPanelState('loading');
+            generateBtn.disabled = true;
+            generateBtn.textContent = '생성 중...';
+
+            try {
+                const prompt = `당신은 의료 전문가가 환자 차트를 작성할 때 사용하는 가이드라인을 만드는 AI 어시스턴트입니다. 목표는 LLM 요약 시스템이 데이터를 정확하게 처리할 수 있도록 구조화된 작성을 유도하는 것입니다.
+                
+사용자가 제공한 아래 의료 서식지를 분석하여, 명확하고 구조화된 작성 요구사항을 생성해주세요. 요구사항은 서식지의 각 섹션(예: <<CC>>, <<O/S>>)에 맞춰 구분되어야 합니다.
+결과는 반드시 한국어로, 아래에 명시된 JSON 스키마를 따르는 JSON 객체로 반환해야 합니다. 각 'points' 항목은 HTML 태그를 사용하여 중요한 키워드를 강조(<strong>)할 수 있습니다.
+
+[사용자 제공 서식지]
+\`\`\`
+${userInput}
+\`\`\``;
+
+                const payload = {
+                    contents: [{ role: "user", parts: [{ text: prompt }] }],
+                    generationConfig: {
+                        responseMimeType: "application/json",
+                        responseSchema: {
+                            type: "ARRAY",
+                            items: {
+                                type: "OBJECT",
+                                properties: {
+                                    title: { type: "STRING" },
+                                    points: { type: "ARRAY", items: { type: "STRING" } }
+                                },
+                                required: ["title", "points"]
+                            }
+                        }
+                    }
+                };
+                
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    const errorBody = await response.text();
+                    console.error("API Error Response:", errorBody);
+                    throw new Error(`API 요청 실패: ${response.status} ${response.statusText}`);
+                }
+                
+                const result = await response.json();
+
+                if (result.candidates && result.candidates[0].content && result.candidates[0].content.parts[0].text) {
+                    const jsonText = result.candidates[0].content.parts[0].text;
+                    generatedRequirementsData = JSON.parse(jsonText);
+                    renderRequirements(generatedRequirementsData);
+                } else {
+                     throw new Error("API 응답에서 유효한 데이터를 찾을 수 없습니다.");
+                }
+
+            } catch (error) {
+                console.error('요구사항 생성 실패:', error);
+                let errorMessage = `요구사항 생성에 실패했습니다. (${error.message})`;
+                if (error.message.includes('400') || error.message.includes('403')) {
+                    errorMessage = `API 키가 유효하지 않거나 결제 정보가 등록되지 않았을 수 있습니다. 확인 후 다시 시도해주세요. (${error.message})`;
+                }
+                setResultsPanelState('error', errorMessage);
+            } finally {
+                generateBtn.disabled = false;
+                generateBtn.textContent = 'AI로 작성 요구사항 생성하기';
+            }
+        });
+
+        copyBtn.addEventListener('click', () => {
+            if (!generatedRequirementsData) return;
+            
+            let textToCopy = '';
+            generatedRequirementsData.forEach((section, secIndex) => {
+                textToCopy += `${section.title.replace(/<[^>]*>/g, '')}\n`;
+                section.points.forEach(point => {
+                    textToCopy += `- ${point.replace(/<[^>]*>/g, '')}\n`;
+                });
+                if (secIndex < generatedRequirementsData.length - 1) {
+                    textToCopy += '\n';
+                }
+            });
+            
+            copyToClipboard(textToCopy, copyBtn);
+        });
+
+        // --- 헬퍼 함수 ---
+        function renderRequirements(data) {
+            let requirementsHTML = '';
+            data.forEach(section => {
+                requirementsHTML += `<div class="text-sm fade-in">
+                    <h3 class="font-bold text-base mb-2 text-indigo-400">${section.title}</h3>
+                    <ul class="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-300">
+                        ${section.points.map(point => `<li>${point}</li>`).join('')}
+                    </ul>
+                </div>`;
+            });
+            setResultsPanelState('content', requirementsHTML);
+        }
+
+        function copyToClipboard(text, buttonElement) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            textarea.style.position = 'fixed';
+            textarea.style.opacity = 0;
+            document.body.appendChild(textarea);
+            textarea.select();
+            
+            try {
+                document.execCommand('copy');
+                const originalText = buttonElement.textContent;
+                buttonElement.textContent = '복사 완료!';
+                buttonElement.classList.add('bg-green-500', 'text-white');
+                setTimeout(() => {
+                    buttonElement.textContent = originalText;
+                    buttonElement.classList.remove('bg-green-500', 'text-white');
+                }, 2000);
+            } catch (err) {
+                console.error('클립보드 복사 실패:', err);
+                 setResultsPanelState('error', '클립보드 복사에 실패했습니다. 브라우저 설정을 확인해주세요.');
+            } finally {
+                document.body.removeChild(textarea);
+            }
+        }
+    </script>
+</body>
+</html>
