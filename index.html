@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LLM 자판기</title>
+    <title>GEN 자판기</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -57,6 +57,29 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+        /* 탭 스타일 */
+        .tab-btn {
+            padding: 0.5rem 1rem;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+            color: #6b7280; /* gray-500 */
+            border-bottom: 3px solid transparent;
+            transition: all 0.2s ease-in-out;
+            font-weight: 500;
+        }
+        .dark .tab-btn {
+            color: #9ca3af; /* gray-400 */
+        }
+        .tab-btn.active-tab {
+            color: #4f46e5; /* indigo-600 */
+            border-bottom-color: #4f46e5; /* indigo-600 */
+            font-weight: 700;
+        }
+        .dark .tab-btn.active-tab {
+            color: #818cf8; /* indigo-400 */
+            border-bottom-color: #818cf8; /* indigo-400 */
+        }
     </style>
 </head>
 <body class="bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200 min-h-screen flex items-center justify-center p-4">
@@ -64,8 +87,8 @@
         
         <!-- 헤더 -->
         <div class="text-center mb-8">
-            <h1 class="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white">LLM 템플릿 서식지 자판기</h1>
-            <p class="mt-3 text-lg text-gray-600 dark:text-gray-400">원하는 판독폼 + 간단한 설명을 제시하는경우 원하는 요구사항을 작성합니다.</p>
+            <h1 class="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white">GEN 자판기</h1>
+            <p class="mt-3 text-lg text-gray-600 dark:text-gray-400">의료 서식지를 입력하면 AI가 LLM 요약에 최적화된 작성 가이드를 3가지 버전으로 생성합니다.</p>
         </div>
 
         <!-- API 키 입력 섹션 -->
@@ -73,15 +96,14 @@
             <label for="apiKeyInput" class="block text-sm font-medium text-yellow-800 dark:text-yellow-200">Gemini API 키 (필수)</label>
             <input type="password" id="apiKeyInput" class="mt-1 block w-full px-3 py-2 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="Notion 등 외부에서 사용하려면 API 키를 반드시 입력하세요">
             <p class="mt-2 text-xs text-yellow-700 dark:text-yellow-300">
-                <strong>중요:</strong> 외부 임베딩 진행이 필요한 경우 고민석에게 API 키를 발급 받으세요. 
-                <a href="https://aistudio.google.com/app/apikey" target="_blank" class="font-semibold underline hover:text-yellow-900 dark:hover:text-yellow-100">여기에서 Gemini API 키를 발급받으세요.</a>
+                <strong>중요:</strong> 이 파일을 Notion, 웹사이트 등 외부 환경에 임베드하여 사용하려면 API 키가 반드시 필요합니다. 
             </p>
         </div>
 
         <!-- 생성 버튼 -->
         <div class="text-center mb-8">
             <button id="generateBtn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-8 rounded-lg shadow-lg transform hover:scale-105 transition-all duration-300 ease-in-out">
-                요구사항 생성!
+                요구사항 생성
             </button>
         </div>
 
@@ -91,8 +113,14 @@
             <!-- 서식지 입력 -->
             <div>
                 <h2 class="text-2xl font-semibold text-gray-800 dark:text-white mb-3">1. 서식지 입력</h2>
-                <div class="bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-200 dark:border-gray-700">
-                    <textarea id="templateInput" class="w-full h-96 p-4 bg-transparent rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none resize-none text-sm leading-relaxed" placeholder="이곳에 분석할 서식지를 붙여넣으세요."></textarea>
+                <div class="relative bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-200 dark:border-gray-700 h-96">
+                    <div id="templatePlaceholder" class="absolute inset-0 flex items-center justify-center text-center text-gray-500 pointer-events-none p-4">
+                         <div>
+                            <p>이곳에 분석할 서식지를 붙여넣으세요.</p>
+                            <p class="mt-1">서식지의 목적이나 사용법에 대한 설명을 함께 적으면<br>더 정확한 결과를 얻을 수 있습니다.</p>
+                        </div>
+                    </div>
+                    <textarea id="templateInput" class="w-full h-full p-4 bg-transparent rounded-lg focus:ring-2 focus:ring-indigo-500 focus:outline-none resize-none text-sm leading-relaxed relative z-10"></textarea>
                 </div>
             </div>
 
@@ -104,76 +132,61 @@
                         복사하기
                     </button>
                 </div>
-                <div id="requirementsOutput" class="bg-gray-50 dark:bg-gray-900/50 p-4 rounded-lg h-96 overflow-auto border border-gray-200 dark:border-gray-700 flex items-center justify-center">
-                    <div id="initialMessage" class="text-center text-gray-500">
-                        <p>서식지를 입력하고 생성 버튼을 누르면</p>
-                        <p>이곳에 AI가 분석한 결과가 표시됩니다.</p>
+                <div id="requirementsOutput" class="bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-200 dark:border-gray-700 h-96 flex flex-col">
+                    <!-- 탭 네비게이션 -->
+                    <div id="tab-nav" class="flex border-b border-gray-200 dark:border-gray-700 hidden">
+                        <button class="tab-btn active-tab" data-tab="0">추천 1</button>
+                        <button class="tab-btn" data-tab="1">추천 2</button>
+                        <button class="tab-btn" data-tab="2">추천 3</button>
                     </div>
-                    <div id="loadingIndicator" class="hidden">
-                        <div class="loader"></div>
-                        <p class="mt-4 text-gray-500">AI가 요구사항을 생성 중입니다...</p>
+                    <!-- 결과 표시 영역 -->
+                    <div class="p-4 overflow-auto flex-grow">
+                        <div id="initialMessage" class="w-full h-full flex items-center justify-center text-center text-gray-500">
+                            <div>
+                                <p>서식지를 입력하고 생성 버튼을 누르면</p>
+                                <p>이곳에 AI가 분석한 결과가 표시됩니다.</p>
+                            </div>
+                        </div>
+                        <div id="loadingIndicator" class="w-full h-full flex items-center justify-center hidden">
+                             <div class="text-center">
+                                <div class="loader mx-auto"></div>
+                                <p id="loadingText" class="mt-4 text-gray-500">AI가 3가지 추천안을 생성 중입니다...</p>
+                            </div>
+                        </div>
+                        <div id="requirementsContent" class="w-full h-full"></div>
                     </div>
-                    <div id="requirementsContent" class="w-full h-full space-y-6"></div>
                 </div>
             </div>
         </div>
+        
+        <!-- 미리보기 섹션 -->
+        <div id="previewSection" class="mt-8 hidden">
+            <h2 class="text-2xl font-semibold text-gray-800 dark:text-white mb-3">3. 미리보기</h2>
+            <div class="bg-gray-50 dark:bg-gray-900/50 rounded-lg border border-gray-200 dark:border-gray-700">
+                <pre id="previewContent" class="w-full h-96 p-4 bg-transparent rounded-lg text-sm leading-relaxed whitespace-pre-wrap overflow-auto"></pre>
+            </div>
+        </div>
+
     </div>
 
     <script>
-        // --- 초기 데이터 (예시용) ---
-        const exampleTemplate = `<<CC>>
-[부위명] : [위치] [양상] 통증 (NRS [방향]:[점수])
-([상세 증상, 악화요인 등 서술])
-
-[부위명] : [위치] [양상] 통증 (NRS [방향]:[점수])
-([상세 증상, 악화요인 등 서술])
-[확인항목]/[확인항목]/확인항목
-
-([부위명]) [이학적 검사항목] : +/-
-([부위명]) [이학적 검사항목] : +/-
-
-<<O/S>>
--[부위], [부위]-
-최근악화시점 :
-원인 :
-진통제 복용횟수 :
-스테로이드 관련 주사 :
-수술 및 시술 :
-현재 episode 이외의 척추 수술여부 :
-
-Prog 검사(-) 치료(-)
-cf)두부 외상(-) 두통(-) 현훈(-) 오심(-)
-cf)현재 타병원 입원 유지(-)
-
-P/H
-F/H
-cf)결핵(-), 간염(-), 현재 독감(-)
-cf)체온(), 호흡기증상(-)
-
-<<공통정보>>
-직업분류 :
-흡연여부 :
-음주여부 :
-키 : cm / 체중 : kg / 내원유형 :
-Comorbidity :
-간질환여부 :
-신질환여부 :
-최근1년간 한약복용여부 :
-급여 및 비급여 항목 고지여부 :`;
-
         // --- DOM 요소 참조 ---
         const generateBtn = document.getElementById('generateBtn');
         const templateInput = document.getElementById('templateInput');
+        const templatePlaceholder = document.getElementById('templatePlaceholder');
         const apiKeyInput = document.getElementById('apiKeyInput');
         const requirementsContent = document.getElementById('requirementsContent');
         const initialMessage = document.getElementById('initialMessage');
         const loadingIndicator = document.getElementById('loadingIndicator');
+        const loadingText = document.getElementById('loadingText');
         const copyBtn = document.getElementById('copyBtn');
+        const tabNav = document.getElementById('tab-nav');
+        const previewSection = document.getElementById('previewSection');
+        const previewContent = document.getElementById('previewContent');
         
-        let generatedRequirementsData = null;
-
-        // --- 초기화 ---
-        templateInput.value = exampleTemplate;
+        let generatedRequirementsArray = [];
+        let generatedPreviewsArray = [];
+        let activeTabIndex = 0;
 
         // --- 결과 패널 상태 관리 함수 ---
         function setResultsPanelState(state, data = '') {
@@ -181,17 +194,23 @@ Comorbidity :
             loadingIndicator.classList.add('hidden');
             requirementsContent.innerHTML = '';
             copyBtn.classList.add('hidden');
+            tabNav.classList.add('hidden');
+            previewSection.classList.add('hidden');
 
             switch (state) {
                 case 'initial':
                     initialMessage.classList.remove('hidden');
                     break;
                 case 'loading':
+                    loadingText.textContent = data;
                     loadingIndicator.classList.remove('hidden');
                     break;
                 case 'content':
-                    requirementsContent.innerHTML = data;
+                    renderRequirements(data.requirements);
+                    renderPreview(data.previews);
+                    tabNav.classList.remove('hidden');
                     copyBtn.classList.remove('hidden');
+                    previewSection.classList.remove('hidden');
                     break;
                 case 'error':
                     requirementsContent.innerHTML = `<div class="w-full h-full flex items-center justify-center"><p class="text-center text-red-500 p-4">${data}</p></div>`;
@@ -200,6 +219,14 @@ Comorbidity :
         }
 
         // --- 이벤트 리스너 ---
+        templateInput.addEventListener('input', () => {
+            if (templateInput.value) {
+                templatePlaceholder.classList.add('hidden');
+            } else {
+                templatePlaceholder.classList.remove('hidden');
+            }
+        });
+
         generateBtn.addEventListener('click', async () => {
             const apiKey = apiKeyInput.value.trim();
             const userInput = templateInput.value.trim();
@@ -216,14 +243,15 @@ Comorbidity :
                 return;
             }
 
-            setResultsPanelState('loading');
+            setResultsPanelState('loading', 'AI가 3가지 요구사항을 생성 중입니다...');
             generateBtn.disabled = true;
             generateBtn.textContent = '생성 중...';
 
             try {
-                const prompt = `당신은 의료 전문가가 환자 차트를 작성할 때 사용하는 가이드라인을 만드는 AI 어시스턴트입니다. 목표는 LLM 요약 시스템이 데이터를 정확하게 처리할 수 있도록 구조화된 작성을 유도하는 것입니다.
+                // 1. 요구사항 3가지 생성
+                const requirementsPrompt = `당신은 의료 전문가가 환자 차트를 작성할 때 사용하는 가이드라인을 만드는 AI 어시스턴트입니다. 목표는 LLM 요약 시스템이 데이터를 정확하게 처리할 수 있도록 구조화된 작성을 유도하는 것입니다.
                 
-사용자가 제공한 아래 의료 서식지를 분석하여, 명확하고 구조화된 작성 요구사항을 생성해주세요. 요구사항은 서식지의 각 섹션(예: <<CC>>, <<O/S>>)에 맞춰 구분되어야 합니다.
+사용자가 제공한 아래 의료 서식지를 분석하여, 명확하고 구조화된 작성 요구사항을 생성해주세요. 이전과는 다른, 새롭고 창의적인 관점으로 제안해주세요. 요구사항은 서식지의 각 섹션(예: <<CC>>, <<O/S>>)에 맞춰 구분되어야 합니다.
 결과는 반드시 한국어로, 아래에 명시된 JSON 스키마를 따르는 JSON 객체로 반환해야 합니다. 각 'points' 항목은 HTML 태그를 사용하여 중요한 키워드를 강조(<strong>)할 수 있습니다.
 
 [사용자 제공 서식지]
@@ -231,8 +259,8 @@ Comorbidity :
 ${userInput}
 \`\`\``;
 
-                const payload = {
-                    contents: [{ role: "user", parts: [{ text: prompt }] }],
+                const requirementsPayload = {
+                    contents: [{ role: "user", parts: [{ text: requirementsPrompt }] }],
                     generationConfig: {
                         responseMimeType: "application/json",
                         responseSchema: {
@@ -250,51 +278,84 @@ ${userInput}
                 };
                 
                 const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
-                const response = await fetch(apiUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
+
+                const reqPromises = Array(3).fill(null).map(() => 
+                    fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(requirementsPayload) })
+                );
+                
+                const reqResponses = await Promise.all(reqPromises);
+                
+                const requirementsResults = [];
+                for (const response of reqResponses) {
+                    if (!response.ok) throw new Error(`요구사항 생성 API 실패: ${response.status}`);
+                    const result = await response.json();
+                    if (result.candidates?.[0]?.content?.parts?.[0]?.text) {
+                        requirementsResults.push(JSON.parse(result.candidates[0].content.parts[0].text));
+                    } else {
+                        throw new Error("요구사항 생성 API 응답 형식이 올바르지 않습니다.");
+                    }
+                }
+                generatedRequirementsArray = requirementsResults;
+
+                // 2. 미리보기 3가지 생성
+                setResultsPanelState('loading', 'AI가 3가지 미리보기를 생성 중입니다...');
+
+                const previewPromises = generatedRequirementsArray.map(reqs => {
+                    const previewPrompt = `주어진 [서식지]를 아래 [작성 요구사항]에 따라 현실적인 예시 데이터로 채워주세요. 결과는 오직 채워진 서식지 텍스트만 반환해야 하며, 다른 설명은 절대 추가하지 마세요.
+
+[서식지]
+\`\`\`
+${userInput}
+\`\`\`
+
+[작성 요구사항]
+${JSON.stringify(reqs, null, 2)}
+`;
+                    const previewPayload = { contents: [{ role: "user", parts: [{ text: previewPrompt }] }] };
+                    return fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(previewPayload) });
                 });
 
-                if (!response.ok) {
-                    const errorBody = await response.text();
-                    console.error("API Error Response:", errorBody);
-                    throw new Error(`API 요청 실패: ${response.status} ${response.statusText}`);
-                }
-                
-                const result = await response.json();
+                const previewResponses = await Promise.all(previewPromises);
 
-                if (result.candidates && result.candidates[0].content && result.candidates[0].content.parts[0].text) {
-                    const jsonText = result.candidates[0].content.parts[0].text;
-                    generatedRequirementsData = JSON.parse(jsonText);
-                    renderRequirements(generatedRequirementsData);
-                } else {
-                     throw new Error("API 응답에서 유효한 데이터를 찾을 수 없습니다.");
+                const previewResults = [];
+                for (const response of previewResponses) {
+                    if (!response.ok) throw new Error(`미리보기 생성 API 실패: ${response.status}`);
+                    const result = await response.json();
+                    if (result.candidates?.[0]?.content?.parts?.[0]?.text) {
+                        previewResults.push(result.candidates[0].content.parts[0].text);
+                    } else {
+                        throw new Error("미리보기 생성 API 응답 형식이 올바르지 않습니다.");
+                    }
                 }
+                generatedPreviewsArray = previewResults;
+
+                // 3. 모든 결과 표시
+                setResultsPanelState('content', { requirements: generatedRequirementsArray, previews: generatedPreviewsArray });
 
             } catch (error) {
-                console.error('요구사항 생성 실패:', error);
-                let errorMessage = `요구사항 생성에 실패했습니다. (${error.message})`;
+                console.error('생성 실패:', error);
+                let errorMessage = `생성에 실패했습니다. (${error.message})`;
                 if (error.message.includes('400') || error.message.includes('403')) {
                     errorMessage = `API 키가 유효하지 않거나 결제 정보가 등록되지 않았을 수 있습니다. 확인 후 다시 시도해주세요. (${error.message})`;
                 }
                 setResultsPanelState('error', errorMessage);
             } finally {
                 generateBtn.disabled = false;
-                generateBtn.textContent = 'AI로 작성 요구사항 생성하기';
+                generateBtn.textContent = '요구사항 생성';
             }
         });
 
         copyBtn.addEventListener('click', () => {
-            if (!generatedRequirementsData) return;
+            if (!generatedRequirementsArray || generatedRequirementsArray.length === 0) return;
             
+            const activeData = generatedRequirementsArray[activeTabIndex];
             let textToCopy = '';
-            generatedRequirementsData.forEach((section, secIndex) => {
+            activeData.forEach((section, secIndex) => {
                 textToCopy += `${section.title.replace(/<[^>]*>/g, '')}\n`;
                 section.points.forEach(point => {
                     textToCopy += `- ${point.replace(/<[^>]*>/g, '')}\n`;
                 });
-                if (secIndex < generatedRequirementsData.length - 1) {
+                if (secIndex < activeData.length - 1) {
                     textToCopy += '\n';
                 }
             });
@@ -302,18 +363,49 @@ ${userInput}
             copyToClipboard(textToCopy, copyBtn);
         });
 
+        tabNav.addEventListener('click', (e) => {
+            if (e.target.classList.contains('tab-btn')) {
+                const tabIndex = parseInt(e.target.dataset.tab, 10);
+                if (tabIndex === activeTabIndex) return;
+                
+                activeTabIndex = tabIndex;
+                
+                document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active-tab'));
+                e.target.classList.add('active-tab');
+
+                document.querySelectorAll('.tab-panel').forEach(panel => panel.classList.add('hidden'));
+                document.getElementById(`tab-panel-${tabIndex}`).classList.remove('hidden');
+
+                previewContent.textContent = generatedPreviewsArray[activeTabIndex];
+            }
+        });
+
         // --- 헬퍼 함수 ---
-        function renderRequirements(data) {
-            let requirementsHTML = '';
-            data.forEach(section => {
-                requirementsHTML += `<div class="text-sm fade-in">
-                    <h3 class="font-bold text-base mb-2 text-indigo-400">${section.title}</h3>
-                    <ul class="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-300">
-                        ${section.points.map(point => `<li>${point}</li>`).join('')}
-                    </ul>
-                </div>`;
+        function renderRequirements(dataArray) {
+            let allPanelsHTML = '';
+            dataArray.forEach((data, index) => {
+                let panelHTML = `<div id="tab-panel-${index}" class="tab-panel space-y-6 ${index !== 0 ? 'hidden' : ''}">`;
+                data.forEach(section => {
+                    panelHTML += `<div class="text-sm fade-in">
+                        <h3 class="font-bold text-base mb-2 text-indigo-400">${section.title}</h3>
+                        <ul class="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-300">
+                            ${section.points.map(point => `<li>${point}</li>`).join('')}
+                        </ul>
+                    </div>`;
+                });
+                panelHTML += `</div>`;
+                allPanelsHTML += panelHTML;
             });
-            setResultsPanelState('content', requirementsHTML);
+            requirementsContent.innerHTML = allPanelsHTML;
+            activeTabIndex = 0;
+            document.querySelectorAll('.tab-btn').forEach((btn, i) => {
+                if (i === 0) btn.classList.add('active-tab');
+                else btn.classList.remove('active-tab');
+            });
+        }
+
+        function renderPreview(previewArray) {
+            previewContent.textContent = previewArray[0];
         }
 
         function copyToClipboard(text, buttonElement) {
@@ -330,7 +422,7 @@ ${userInput}
                 buttonElement.textContent = '복사 완료!';
                 buttonElement.classList.add('bg-green-500', 'text-white');
                 setTimeout(() => {
-                    buttonElement.textContent = originalText;
+                    buttonElement.textContent = '복사하기';
                     buttonElement.classList.remove('bg-green-500', 'text-white');
                 }, 2000);
             } catch (err) {
